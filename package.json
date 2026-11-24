@@ -1,0 +1,54 @@
+{
+  "name": "react-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "dev:vercel": "vercel dev --listen 3000",
+    "dev:frontend": "vite --port=3000 --host=0.0.0.0",
+    "build": "vite build",
+    "build:seo": "vite build && react-snap",
+    "preview": "vite preview",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit"
+  },
+  "reactSnap": {
+    "source": "dist",
+    "include": [
+      "/",
+      "/work"
+    ]
+  },
+  "dependencies": {
+    "@google/genai": "^1.29.0",
+    "@headlessui/react": "^2.2.9",
+    "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-react": "^5.0.4",
+    "better-sqlite3": "^12.4.1",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.2.3",
+    "emailjs-com": "^3.2.0",
+    "express": "^4.21.2",
+    "lenis": "^1.3.18",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-intersection-observer": "^10.0.3",
+    "react-player": "^3.4.0",
+    "react-router-dom": "^7.13.1",
+    "react-window": "^2.2.7",
+    "vite": "^6.2.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "autoprefixer": "^10.4.21",
+    "react-snap": "^1.23.0",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
