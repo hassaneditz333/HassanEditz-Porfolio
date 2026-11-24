@@ -1,27 +1,25 @@
 import { motion } from "framer-motion";
 import { Play, ArrowRight } from "lucide-react";
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSiteContent } from "../../SiteContentContext";
+import { defaultContent } from "../../content";
 
 export default function Hero() {
   const { hero } = useSiteContent();
+  const safeHero = { ...defaultContent.hero, ...(hero || {}) };
   const imageRef = useRef<HTMLDivElement>(null);
   const [rotate, setRotate] = useState({ x: 0, y: 0 });
-  // Snowball positions and sizes generated only once with useMemo
+  // Snowball positions and sizes generated only once on mount
   const [snowballs] = useState(() =>
-    useMemo(
-      () =>
-        Array.from({ length: 25 }, () => ({
-          width: Math.random() * 4 + 2,
-          height: Math.random() * 4 + 2,
-          left: Math.random() * 100,
-          top: Math.random() * 100,
-          duration: Math.random() * 6 + 6,
-          delay: Math.random() * 5,
-        })),
-      [],
-    ),
+    Array.from({ length: 25 }, () => ({
+      width: Math.random() * 4 + 2,
+      height: Math.random() * 4 + 2,
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      duration: Math.random() * 6 + 6,
+      delay: Math.random() * 5,
+    }))
   );
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
@@ -81,9 +79,9 @@ export default function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9 }}
           >
-            {hero.line1}
+            {safeHero.line1}
             <br />
-            {hero.line2}
+            {safeHero.line2}
             <br />
             <span
               style={{
@@ -92,7 +90,7 @@ export default function Hero() {
                 WebkitTextFillColor: "transparent",
               }}
             >
-              {hero.accent}
+              {safeHero.accent}
             </span>
           </motion.h1>
 
@@ -102,7 +100,7 @@ export default function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.8 }}
           >
-            {hero.description}
+            {safeHero.description}
           </motion.p>
 
           {/* Buttons */}
@@ -118,7 +116,7 @@ export default function Hero() {
               style={{ textDecoration: "none" }}
             >
               <Play size={18} fill="currentColor" />
-              {hero.primaryButtonText || "View My Work"}
+              {safeHero.primaryButtonText || "View My Work"}
             </Link>
 
             <motion.a
@@ -137,7 +135,7 @@ export default function Hero() {
               }}
               className="px-5 py-3 rounded-full min-w-[230px] sm:min-w-0 border border-cyan-400/30 text-white flex items-center gap-2 justify-center hover:bg-white/5 transition-all"
             >
-              {hero.secondaryButtonText || "Start a Project"}
+              {safeHero.secondaryButtonText || "Start a Project"}
               <ArrowRight size={18} />
             </motion.a>
           </motion.div>
@@ -190,13 +188,13 @@ export default function Hero() {
               }}
             >
               <img
-                src={hero.imageUrl}
+                src={safeHero.imageUrl}
                 alt="Hassan Shakeel"
                 className="w-full h-full object-cover transition-transform duration-300"
                 style={{
-                  objectPosition: `${hero.imageX ?? 50}% ${hero.imageY ?? 12}%`,
-                  transform: `scale(${(hero.imageZoom ?? 110) / 100})`,
-                  filter: `brightness(${hero.imageBrightness ?? 100}%)`,
+                  objectPosition: `${safeHero.imageX ?? 50}% ${safeHero.imageY ?? 12}%`,
+                  transform: `scale(${(safeHero.imageZoom ?? 110) / 100})`,
+                  filter: `brightness(${safeHero.imageBrightness ?? 100}%)`,
                 }}
                 loading="lazy"
                 decoding="async"

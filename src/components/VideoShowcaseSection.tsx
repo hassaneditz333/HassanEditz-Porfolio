@@ -39,7 +39,7 @@ const fallbackVideos = [
 
 export default function VideoShowcaseSection() {
   const { showcase, brandName } = useSiteContent();
-  const videos = showcase.videos.length ? showcase.videos : fallbackVideos;
+  const videos = showcase?.videos?.length ? showcase.videos : fallbackVideos;
   const [centerIdx, setCenterIdx] = useState(2);
   const [modal, setModal] = useState<any>(null);
   const [modalVideoLoaded, setModalVideoLoaded] = useState(false);

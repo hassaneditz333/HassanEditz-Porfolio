@@ -55,7 +55,7 @@ const fallbackPlans = [
 
 export default function Pricing() {
   const { pricing } = useSiteContent();
-  const plans = pricing.plans.length ? pricing.plans : fallbackPlans;
+  const plans = pricing?.plans?.length ? pricing.plans : fallbackPlans;
   return (
     <section
       id="pricing"

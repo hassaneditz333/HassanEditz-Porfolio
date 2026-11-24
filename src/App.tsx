@@ -1,5 +1,11 @@
-import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { Component, useEffect, lazy, Suspense, type ReactNode, type ErrorInfo } from "react";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+
+import Navbar from "./components/layout/Navbar";
+import Footer from "./components/layout/Footer";
+import { SiteContentProvider } from "./SiteContentContext";
+
 // Scroll to top on route change
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -8,18 +14,40 @@ function ScrollToTop() {
   }, [pathname]);
   return null;
 }
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { lazy, Suspense } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+// Error Boundary to prevent crashes from blanking the screen
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
-import Navbar from "./components/layout/Navbar";
-import Footer from "./components/layout/Footer";
-import { SiteContentProvider } from "./SiteContentContext";
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
+          <h2 className="text-2xl font-bold mb-3">Something went wrong loading this section</h2>
+          <p className="text-gray-400 mb-6 text-sm max-w-md">Please refresh the page to restore normal display.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2.5 bg-cyan-400 text-black font-semibold rounded-xl hover:bg-cyan-300 transition"
+          >
+            Refresh Page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Lazy loaded sections
 const Hero = lazy(() => import("./components/sections/Hero"));
@@ -28,14 +56,11 @@ const Services = lazy(() => import("./components/sections/Services"));
 const About = lazy(() => import("./components/sections/About"));
 const Process = lazy(() => import("./components/sections/Process"));
 const Testimonials = lazy(() => import("./components/Testimonials"));
-const VideoReel = lazy(() => import("./components/VideoReel"));
 const Pricing = lazy(() => import("./components/sections/Pricing"));
 const FAQ = lazy(() => import("./components/sections/FAQ"));
 const Contact = lazy(() => import("./components/sections/Contact"));
 const Work = lazy(() => import("./components/Work"));
 const Admin = lazy(() => import("./components/Admin"));
-
-const SectionLoader = () => null;
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -49,7 +74,7 @@ function AnimatedRoutes() {
         transition={{ duration: 0.38, ease: "easeInOut" }}
         className="min-h-screen bg-background text-text selection:bg-primary/30 selection:text-white"
       >
-        {/* Show Navbar on all routes except /work */}
+        {/* Show Navbar on all routes except /work and /admin */}
         {location.pathname !== "/work" && location.pathname !== "/admin" && <Navbar />}
         <Routes location={location}>
           <Route path="/admin" element={<Suspense fallback={null}><Admin /></Suspense>} />
@@ -58,7 +83,7 @@ function AnimatedRoutes() {
             element={
               <>
                 <main>
-                  <Suspense fallback={<div style={{ minHeight: 600 }} />}> {/* Reserve space for Hero */}
+                  <Suspense fallback={<div style={{ minHeight: 600 }} />}>
                     <motion.div
                       initial={{ opacity: 0, y: 32 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -117,7 +142,11 @@ export default function App() {
   return (
     <Router>
       <ScrollToTop />
-      <SiteContentProvider><AnimatedRoutes /></SiteContentProvider>
+      <ErrorBoundary>
+        <SiteContentProvider>
+          <AnimatedRoutes />
+        </SiteContentProvider>
+      </ErrorBoundary>
     </Router>
   );
 }
