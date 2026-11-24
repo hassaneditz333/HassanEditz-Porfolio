@@ -38,7 +38,7 @@ function Footer() {
 
           <a
             href="/blog/"
-            className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+            className="inline-flex min-h-11 items-center px-2 text-sm text-cyan-400 transition-colors hover:text-cyan-300"
           >
             Read Blog
           </a>

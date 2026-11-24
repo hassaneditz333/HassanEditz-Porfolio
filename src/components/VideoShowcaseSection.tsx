@@ -37,6 +37,16 @@ const fallbackVideos = [
   },
 ];
 
+function cloudinaryPoster(videoUrl: string, second = 2) {
+  const marker = '/video/upload/';
+  const markerIndex = videoUrl.indexOf(marker);
+  if (markerIndex === -1) return undefined;
+  const base = videoUrl.slice(0, markerIndex + marker.length);
+  const tail = videoUrl.slice(markerIndex + marker.length);
+  const normalizedTail = tail.replace(/\.(mp4|mov|webm)(\?.*)?$/i, '');
+  return `${base}so_${second},w_1000,q_auto,f_auto/${normalizedTail}.jpg`;
+}
+
 export default function VideoShowcaseSection() {
   const { showcase, brandName } = useSiteContent();
   const videos = showcase?.videos?.length ? showcase.videos : fallbackVideos;
@@ -44,6 +54,7 @@ export default function VideoShowcaseSection() {
   const [modal, setModal] = useState<any>(null);
   const [modalVideoLoaded, setModalVideoLoaded] = useState(false);
   const [isSectionInView, setIsSectionInView] = useState(false);
+  const [readyVideos, setReadyVideos] = useState<Record<number, boolean>>({});
 
   const sectionRef = useRef<HTMLElement>(null);
   const inlineVideoRefs = useRef<Record<number, HTMLVideoElement | null>>({});
@@ -137,12 +148,13 @@ export default function VideoShowcaseSection() {
       <div className="relative max-w-7xl mx-auto flex items-center justify-center">
         <button
           onClick={prev}
-          className="absolute left-2 md:left-0 z-30 bg-white/5 backdrop-blur-md border border-white/10 rounded-full p-2 md:p-3 text-white hover:scale-110 transition"
+          aria-label="Previous video"
+          className="absolute left-0 z-30 hidden rounded-full border border-white/10 bg-white/5 p-3 text-white backdrop-blur-md transition hover:scale-110 md:block"
         >
           <ChevronLeft size={24} />
         </button>
 
-        <div className="flex items-center gap-3 md:gap-10">
+        <div className="flex w-full items-center justify-center gap-10">
           {visibleVideos.map((video, idx) => {
             const center = idx === 1;
 
@@ -153,8 +165,8 @@ export default function VideoShowcaseSection() {
                 transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
                 className={`relative rounded-3xl overflow-hidden cursor-pointer ${
                   center
-                    ? 'w-[230px] h-[145px] md:w-[520px] md:h-[320px]'
-                    : 'w-[130px] h-[90px] md:w-[260px] md:h-[170px]'
+                    ? 'aspect-video w-full max-w-[340px] md:h-[320px] md:w-[520px] md:max-w-none'
+                    : 'hidden h-[170px] w-[260px] md:block'
                 }`}
                 style={{
                   opacity: center ? 1 : 0.58,
@@ -173,16 +185,23 @@ export default function VideoShowcaseSection() {
                   setModalVideoLoaded(false);
                 }}
               >
+                {!readyVideos[video.id] && (
+                  <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-[#0b0b0b] via-[#181818] to-[#0b0b0b]" />
+                )}
                 <video
                   ref={(el) => {
                     inlineVideoRefs.current[video.id] = el;
                   }}
                   src={video.video}
-                  className="w-full h-full object-cover"
+                  poster={cloudinaryPoster(video.video)}
+                  className="relative h-full w-full object-cover"
                   muted
                   loop
                   playsInline
                   preload={center ? 'auto' : 'metadata'}
+                  onLoadedData={() =>
+                    setReadyVideos((current) => ({ ...current, [video.id]: true }))
+                  }
                 />
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/10" />
@@ -210,16 +229,51 @@ export default function VideoShowcaseSection() {
 
         <button
           onClick={next}
-          className="absolute right-2 md:right-0 z-30 bg-white/5 backdrop-blur-md border border-white/10 rounded-full p-2 md:p-3 text-white hover:scale-110 transition"
+          aria-label="Next video"
+          className="absolute right-0 z-30 hidden rounded-full border border-white/10 bg-white/5 p-3 text-white backdrop-blur-md transition hover:scale-110 md:block"
         >
           <ChevronRight size={24} />
         </button>
       </div>
 
-      <div className="flex justify-center gap-3 mt-10">
+      <div className="mt-6 flex items-center justify-center gap-4 md:hidden">
+        <button
+          type="button"
+          onClick={prev}
+          aria-label="Previous video"
+          className="grid size-11 place-items-center rounded-full border border-white/10 bg-white/[.04] text-white transition active:scale-95"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <div className="flex items-center justify-center gap-2">
+          {videos.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              aria-label={`Show video ${i + 1}`}
+              onClick={() => setCenterIdx(i)}
+              className={`h-2 rounded-full transition-all ${
+                i === centerIdx ? 'w-7 bg-cyan-400' : 'w-2 bg-white/25'
+              }`}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={next}
+          aria-label="Next video"
+          className="grid size-11 place-items-center rounded-full border border-white/10 bg-white/[.04] text-white transition active:scale-95"
+        >
+          <ChevronRight size={20} />
+        </button>
+      </div>
+
+      <div className="mt-10 hidden justify-center gap-3 md:flex">
         {videos.map((_, i) => (
           <button
             key={i}
+            type="button"
+            aria-label={`Show video ${i + 1}`}
             onClick={() => setCenterIdx(i)}
             className={`transition-all rounded-full ${
               i === centerIdx ? 'w-8 h-2 bg-blue-400' : 'w-2 h-2 bg-white/30'

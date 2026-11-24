@@ -29,7 +29,7 @@ export default function CustomSelect({ options, name, placeholder, required, val
     <div className="relative w-full max-w-xs">
       <button
         type="button"
-        className={`w-full bg-black/30 border border-cyan-400/30 rounded-xl px-3 py-2 text-white flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-cyan-400/60 focus:border-cyan-400 focus:shadow-[0_0_12px_2px_rgba(6,182,212,0.18)] transition-all ${open ? 'ring-2 ring-cyan-400/60 border-cyan-400 shadow-[0_0_12px_2px_rgba(6,182,212,0.18)]' : ''}`}
+        className={`flex min-h-11 w-full items-center justify-between rounded-xl border border-cyan-400/30 bg-black/30 px-3 py-2 text-white transition-all focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/60 focus:shadow-[0_0_12px_2px_rgba(6,182,212,0.18)] ${open ? 'ring-2 ring-cyan-400/60 border-cyan-400 shadow-[0_0_12px_2px_rgba(6,182,212,0.18)]' : ''}`}
         style={{ minWidth: 160 }}
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="listbox"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, X } from "lucide-react";
+import { ArrowLeft, Play, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import SimpleCircleLoader from "./ui/SimpleCircleLoader";
 import CustomSelect from "./ui/CustomSelect";
 import { useSiteContent } from "../SiteContentContext";
@@ -184,13 +185,20 @@ function buildCloudinaryThumb(videoUrl: string, second = 2): string | null {
 const VideoCard = React.memo(function VideoCard({
   video,
   onClick,
+  className = "",
 }: {
   video: VideoType;
   onClick: () => void;
+  className?: string;
 }) {
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const [isThumbnailReady, setIsThumbnailReady] = useState(false);
   const thumbnail =
     video.thumbnail ?? buildCloudinaryThumb(video.video, video.frameTime || 2);
+
+  useEffect(() => {
+    setIsThumbnailReady(false);
+  }, [thumbnail]);
 
   // Ref for the video element
   const videoEl = useRef<HTMLVideoElement | null>(null);
@@ -220,18 +228,29 @@ const VideoCard = React.memo(function VideoCard({
     <motion.div
       whileHover={{ y: -6, scale: 1.02 }}
       onClick={onClick}
-      className="group relative rounded-3xl overflow-hidden cursor-pointer border border-white/10 hover:border-cyan-400/40 bg-black h-60"
+      className={`group relative h-60 cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-black hover:border-cyan-400/40 ${className}`}
     >
+      {!isThumbnailReady && (
+        <div className="absolute inset-0 overflow-hidden bg-[#0d0d0d]">
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-white/[.025] via-white/[.07] to-white/[.025]" />
+          <div className="absolute inset-x-5 bottom-5 space-y-2">
+            <div className="h-2.5 w-24 rounded-full bg-white/10" />
+            <div className="h-2 w-16 rounded-full bg-white/[.06]" />
+          </div>
+        </div>
+      )}
       {thumbnail ? (
         <img
           src={thumbnail}
           alt={`${video.title} thumbnail`}
           loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover transition duration-700 group-hover:scale-110"
+          onLoad={() => setIsThumbnailReady(true)}
+          onError={() => setIsThumbnailReady(false)}
+          className={`absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110 ${isThumbnailReady ? "opacity-100" : "opacity-0"}`}
           referrerPolicy="no-referrer"
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
           <SimpleCircleLoader />
         </div>
       )}
@@ -317,7 +336,14 @@ export default function Work() {
     ...videoCategories.map((c) => ({ label: c.label, key: c.key })),
   ];
   const [modal, setModal] = useState<VideoType | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches
+      ? videoCategories[0]?.key || "all"
+      : "all",
+  );
+  const [expandedCategories, setExpandedCategories] = useState<
+    Record<string, boolean>
+  >({});
 
   const displayed =
     activeTab === "all"
@@ -326,8 +352,15 @@ export default function Work() {
 
   return (
     <section className="min-h-screen bg-black px-6 py-10">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-5xl font-bold text-center mb-10">
+      <div className="relative max-w-7xl mx-auto">
+        <Link
+          to="/"
+          className="absolute left-0 top-1 hidden min-h-11 items-center gap-2 rounded-full border border-white/10 bg-white/[.035] px-4 text-sm font-medium text-gray-300 transition hover:border-cyan-400/40 hover:bg-white/[.06] hover:text-white sm:inline-flex"
+        >
+          <ArrowLeft size={17} className="text-cyan-400" />
+          Back to Home
+        </Link>
+        <h1 className="mb-10 text-center text-5xl font-bold">
           <span
             style={{
               background:
@@ -353,7 +386,7 @@ export default function Work() {
                   type="button"
                   aria-pressed={active}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`rounded-full border px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] transition-all duration-200 ${
+                  className={`inline-flex min-h-11 items-center rounded-full border px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] transition-all duration-200 ${
                     active
                       ? "border-cyan-400 bg-cyan-400 text-black shadow-[0_0_20px_rgba(6,182,212,.18)]"
                       : "border-white/10 bg-white/[.025] text-gray-400 hover:border-cyan-400/40 hover:text-white"
@@ -378,8 +411,12 @@ export default function Work() {
         <div className="space-y-16">
           {displayed.map((category, categoryIndex) => (
             <div key={category.key}>
-              {/* Marquee label */}
-              <div className="overflow-hidden whitespace-nowrap mb-6">
+              <h2 className="mb-6 text-center text-2xl font-bold uppercase tracking-[0.08em] text-cyan-400 drop-shadow-[0_0_12px_rgba(6,182,212,.28)] sm:hidden">
+                {category.label}
+              </h2>
+
+              {/* Animated category label for larger screens */}
+              <div className="mb-6 hidden overflow-hidden whitespace-nowrap sm:block">
                 <div
                   className={`work-marquee flex items-center ${
                     categoryIndex % 2 === 0
@@ -417,14 +454,36 @@ export default function Work() {
                 stretch each other to equal heights.
               */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {category.videos.map((video) => (
+                {category.videos.map((video, videoIndex) => (
                   <VideoCard
                     key={video.id}
                     video={video}
                     onClick={() => setModal(video)}
+                    className={
+                      videoIndex >= 3 && !expandedCategories[category.key]
+                        ? "hidden sm:block"
+                        : ""
+                    }
                   />
                 ))}
               </div>
+              {category.videos.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedCategories((current) => ({
+                      ...current,
+                      [category.key]: !current[category.key],
+                    }))
+                  }
+                  aria-expanded={Boolean(expandedCategories[category.key])}
+                  className="mx-auto mt-5 flex min-h-11 items-center justify-center rounded-full border border-cyan-400/25 bg-cyan-400/[.06] px-5 text-sm font-medium text-cyan-300 transition active:scale-95 sm:hidden"
+                >
+                  {expandedCategories[category.key]
+                    ? "Show less"
+                    : `View ${category.videos.length - 3} more`}
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -434,27 +493,13 @@ export default function Work() {
         {modal && <VideoModal video={modal} onClose={() => setModal(null)} />}
       </AnimatePresence>
 
-      {/* Fixed Go Back Button */}
-      <button
-        onClick={() => window.history.back()}
-        aria-label="Go Back"
-        className="premium-go-back-btn"
+      <Link
+        to="/"
+        aria-label="Back to Home"
+        className="fixed bottom-5 right-5 z-40 grid size-12 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 text-white shadow-[0_0_28px_rgba(6,182,212,.28)] transition active:scale-95 sm:hidden"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={3}
-          stroke="currentColor"
-          className="w-8 h-8 go-back-arrow"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15.75 19.5L8.25 12l7.5-7.5"
-          />
-        </svg>
-      </button>
+        <ArrowLeft size={23} />
+      </Link>
     </section>
   );
 }

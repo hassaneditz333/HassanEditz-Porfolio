@@ -167,11 +167,11 @@ function Navbar() {
 
             <div className="px-4 sm:px-5 py-3 md:py-4 flex items-center justify-between">
               {/* Left */}
-              <div className="hidden md:flex items-center flex-1 gap-8">
+              <div className="hidden lg:flex items-center flex-1 gap-8">
                 {location.pathname === "/work" ? (
                   <Link
                     to="/"
-                    className="flex items-center text-sm font-medium text-gray-300 hover:text-white transition-colors gap-2 group"
+                    className="group flex min-h-11 items-center gap-2 text-sm font-medium text-gray-300 transition-colors hover:text-white"
                   >
                     <ArrowLeft
                       size={18}
@@ -183,7 +183,7 @@ function Navbar() {
                   <>
                     <Link
                       to="/"
-                      className={`text-sm font-medium transition-colors ${
+                      className={`inline-flex min-h-11 items-center text-sm font-medium transition-colors ${
                         activeSection === "Home"
                           ? "text-cyan-400"
                           : "text-gray-300 hover:text-white"
@@ -210,7 +210,7 @@ function Navbar() {
                             {link.route ? (
                               <Link
                                 to={link.href}
-                                className={`relative text-sm transition-colors ${
+                                className={`relative inline-flex min-h-11 items-center text-sm transition-colors ${
                                   isActive
                                     ? "text-cyan-400"
                                     : "text-gray-300 hover:text-white"
@@ -235,7 +235,7 @@ function Navbar() {
                                 onClick={() =>
                                   handleSmoothScroll(link.href, link.name)
                                 }
-                                className={`relative text-sm transition-colors ${
+                                className={`relative inline-flex min-h-11 items-center text-sm transition-colors ${
                                   isActive
                                     ? "text-cyan-400"
                                     : "text-gray-300 hover:text-white"
@@ -265,7 +265,7 @@ function Navbar() {
               </div>
 
               {/* Logo */}
-              <Link to="/">
+              <Link to="/" className="inline-flex min-h-11 items-center">
                 <motion.span
                   whileHover={{
                     scale: 1.05,
@@ -278,7 +278,7 @@ function Navbar() {
               </Link>
 
               {/* CTA */}
-              <div className="hidden md:flex items-center justify-end flex-1">
+              <div className="hidden lg:flex items-center justify-end flex-1">
                 <motion.a
                   href="#contact"
                   animate={{
@@ -297,7 +297,7 @@ function Navbar() {
                     y: -3,
                     scale: 1.05,
                   }}
-                  className="px-5 py-2 rounded-full bg-white/[0.04] border border-cyan-400/30 text-white hover:border-cyan-400 transition-all"
+                  className="inline-flex min-h-11 items-center rounded-full border border-cyan-400/30 bg-white/[0.04] px-5 py-2 text-white transition-all hover:border-cyan-400"
                 >
                   {navCtaText || "Let's Talk"}
                 </motion.a>
@@ -305,7 +305,7 @@ function Navbar() {
 
               {/* Mobile Toggle */}
               <button
-                className="md:hidden text-white p-2 z-50"
+                className="z-50 grid size-11 place-items-center text-white lg:hidden"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
                 {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -322,7 +322,7 @@ function Navbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center md:hidden"
+            className="fixed inset-0 z-40 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center lg:hidden"
           >
             <ul className="flex flex-col items-center gap-8">
               {navLinks.map((link, index) => (

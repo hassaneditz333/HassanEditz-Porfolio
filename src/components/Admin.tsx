@@ -33,6 +33,13 @@ import {
 type Section = "brand" | "videos" | "work" | "pricing";
 const inputClass =
   "w-full rounded-xl border border-[#292929] bg-[#151515] px-3.5 py-3 text-[15px] text-white outline-none transition placeholder:text-[#606060] focus:border-[#555] focus:bg-[#181818]";
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
+const SUPPORTED_VIDEO_TYPES = new Set([
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "video/x-m4v",
+]);
 
 function optimizedCloudinaryVideoUrl(url: string) {
   const marker = "/video/upload/";
@@ -124,28 +131,46 @@ function VideoUpload({
   activeKey,
   progress,
   onSelect,
+  onCancel,
 }: {
   uploadKey: string;
   activeKey: string;
   progress: number;
   onSelect: (file?: File) => void;
+  onCancel: () => void;
 }) {
   const uploading = activeKey === uploadKey;
   return (
-    <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-3 text-sm transition ${uploading ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" : "border-[#3a3a3a] text-[#aaa] hover:border-[#666] hover:bg-[#171717] hover:text-white"}`}>
-      <UploadCloud size={17} />
-      <span>{uploading ? `Uploading ${progress}%` : "Upload / replace video"}</span>
-      <input
-        type="file"
-        accept="video/mp4,video/webm,video/quicktime,video/x-m4v"
-        disabled={Boolean(activeKey)}
-        className="hidden"
-        onChange={(event) => {
-          onSelect(event.target.files?.[0]);
-          event.currentTarget.value = "";
-        }}
-      />
-    </label>
+    <div>
+      <div className="flex gap-2">
+        <label className={`flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-3 text-sm transition ${uploading ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" : activeKey ? "cursor-not-allowed border-[#292929] text-[#555]" : "border-[#3a3a3a] text-[#aaa] hover:border-[#666] hover:bg-[#171717] hover:text-white"}`}>
+          <UploadCloud size={17} />
+          <span>{uploading ? `Uploading ${progress}%` : "Upload / replace video"}</span>
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime,video/x-m4v,.mov,.m4v"
+            disabled={Boolean(activeKey)}
+            className="hidden"
+            onChange={(event) => {
+              onSelect(event.target.files?.[0]);
+              event.currentTarget.value = "";
+            }}
+          />
+        </label>
+        {uploading && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-11 rounded-xl border border-red-400/25 px-3 text-sm text-red-300 transition hover:bg-red-950/30"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+      <p className="mt-2 text-center text-[11px] text-[#666]">
+        MP4, WebM, MOV or M4V · Maximum 100MB
+      </p>
+    </div>
   );
 }
 
@@ -239,6 +264,8 @@ export default function Admin() {
   } | null>(null);
   const [deletePhrase, setDeletePhrase] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const uploadRequestRef = useRef<XMLHttpRequest | null>(null);
+  const uploadCancelledRef = useRef(false);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -266,6 +293,16 @@ export default function Admin() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (!uploadingVideo) return;
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [uploadingVideo]);
 
   async function requestCode() {
     setBusy(true);
@@ -460,10 +497,16 @@ export default function Admin() {
     onUploaded: (video: string, publicId: string) => void,
   ) {
     if (!file) return;
-    if (!file.type.startsWith("video/")) {
-      setError("Please choose a video file.");
+    const supportedExtension = /\.(mp4|webm|mov|m4v)$/i.test(file.name);
+    if ((!SUPPORTED_VIDEO_TYPES.has(file.type) && !supportedExtension)) {
+      setError("Unsupported video. Choose an MP4, WebM, MOV or M4V file.");
       return;
     }
+    if (file.size > MAX_VIDEO_SIZE) {
+      setError("This video is larger than 100MB. Compress it before uploading.");
+      return;
+    }
+    uploadCancelledRef.current = false;
     setUploadingVideo(key);
     setUploadProgress(0);
     setError("");
@@ -474,8 +517,17 @@ export default function Admin() {
         credentials: "same-origin",
       });
       const signed = await signatureResponse.json().catch(() => ({}));
-      if (!signatureResponse.ok)
-        throw new Error(signed.error || "Unable to start video upload");
+      if (!signatureResponse.ok) {
+        const configurationMissing = String(signed.error || "").includes(
+          "not configured",
+        );
+        throw new Error(
+          configurationMissing
+            ? "Cloudinary is not configured yet. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in Vercel."
+            : signed.error || "Unable to start video upload",
+        );
+      }
+      if (uploadCancelledRef.current) throw new Error("Upload cancelled.");
 
       const form = new FormData();
       form.append("file", file);
@@ -486,12 +538,14 @@ export default function Admin() {
 
       const uploaded = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
         const request = new XMLHttpRequest();
+        uploadRequestRef.current = request;
         request.open("POST", `https://api.cloudinary.com/v1_1/${signed.cloudName}/video/upload`);
         request.upload.onprogress = (event) => {
           if (event.lengthComputable)
             setUploadProgress(Math.round((event.loaded / event.total) * 100));
         };
         request.onerror = () => reject(new Error("Upload failed. Check your connection and try again."));
+        request.onabort = () => reject(new Error("Upload cancelled."));
         request.onload = () => {
           const result = JSON.parse(request.responseText || "{}");
           if (request.status < 200 || request.status >= 300)
@@ -506,10 +560,23 @@ export default function Admin() {
       );
       setMessage("Video uploaded. Publish changes to make it live and remove the old video.");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unable to upload video");
+      const reasonMessage = reason instanceof Error ? reason.message : "Unable to upload video";
+      if (reasonMessage === "Upload cancelled.") setMessage(reasonMessage);
+      else setError(reasonMessage);
     } finally {
+      uploadRequestRef.current = null;
       setUploadingVideo("");
       setUploadProgress(0);
+    }
+  }
+
+  function cancelVideoUpload() {
+    uploadCancelledRef.current = true;
+    uploadRequestRef.current?.abort();
+    if (!uploadRequestRef.current) {
+      setUploadingVideo("");
+      setUploadProgress(0);
+      setMessage("Upload cancelled.");
     }
   }
 
