@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { defaultContent, type SiteContent } from "../../src/content.js";
 import { redis } from "../_lib/redis.js";
 import { body, isAdmin, json, validOrigin } from "../_lib/security.js";
+import { deleteManagedVideos } from "../_lib/cloudinary.js";
 
 const clean = (value: unknown, max = 500) =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -45,6 +46,7 @@ function sanitize(input: SiteContent): SiteContent {
         id: i + 1,
         title: clean(v.title, 100),
         video: clean(v.video, 1000),
+        publicId: clean(v.publicId, 300) || undefined,
       })),
     },
     workCategories: input.workCategories
@@ -59,6 +61,7 @@ function sanitize(input: SiteContent): SiteContent {
           id: categoryIndex * 1000 + videoIndex + 1,
           title: clean(video.title, 100),
           video: clean(video.video, 1000),
+          publicId: clean(video.publicId, 300) || undefined,
           frameTime: Math.max(0, Math.min(3600, Number(video.frameTime) || 2)),
           thumbnail: clean(video.thumbnail, 1000) || undefined,
         })),
@@ -99,7 +102,22 @@ export default async function handler(
       if (!validOrigin(req))
         return json(res, 403, { error: "Invalid request origin" });
       const content = sanitize(await body(req));
+      const previousRaw = await redis(["GET", "site:content"]);
+      const previous = previousRaw ? JSON.parse(previousRaw) as SiteContent : defaultContent;
       await redis(["SET", "site:content", JSON.stringify(content)]);
+      const currentIds = new Set([
+        ...content.showcase.videos.map((video) => video.publicId),
+        ...content.workCategories.flatMap((category) =>
+          category.videos.map((video) => video.publicId),
+        ),
+      ].filter((id): id is string => Boolean(id)));
+      const removedIds = [
+        ...previous.showcase.videos.map((video) => video.publicId),
+        ...previous.workCategories.flatMap((category) =>
+          category.videos.map((video) => video.publicId),
+        ),
+      ].filter((id): id is string => Boolean(id) && !currentIds.has(id));
+      await deleteManagedVideos(removedIds);
       return json(res, 200, content);
     }
     json(res, 405, { error: "Method not allowed" });

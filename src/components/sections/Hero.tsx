@@ -196,7 +196,8 @@ export default function Hero() {
                   transform: `scale(${(safeHero.imageZoom ?? 110) / 100})`,
                   filter: `brightness(${safeHero.imageBrightness ?? 100}%)`,
                 }}
-                loading="lazy"
+                loading="eager"
+                fetchPriority="high"
                 decoding="async"
                 draggable="false"
               />

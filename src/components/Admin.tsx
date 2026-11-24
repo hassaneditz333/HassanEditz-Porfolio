@@ -25,6 +25,7 @@ import {
   Save,
   ShieldCheck,
   Trash2,
+  UploadCloud,
   Video,
   X,
 } from "lucide-react";
@@ -32,6 +33,12 @@ import {
 type Section = "brand" | "videos" | "work" | "pricing";
 const inputClass =
   "w-full rounded-xl border border-[#292929] bg-[#151515] px-3.5 py-3 text-[15px] text-white outline-none transition placeholder:text-[#606060] focus:border-[#555] focus:bg-[#181818]";
+
+function optimizedCloudinaryVideoUrl(url: string) {
+  const marker = "/video/upload/";
+  if (!url.includes(marker)) return url;
+  return url.replace(marker, `${marker}q_auto/f_auto/`);
+}
 
 function Field({
   label,
@@ -107,6 +114,36 @@ function RangeControl({
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         className="h-1.5 w-full cursor-pointer accent-white"
+      />
+    </label>
+  );
+}
+
+function VideoUpload({
+  uploadKey,
+  activeKey,
+  progress,
+  onSelect,
+}: {
+  uploadKey: string;
+  activeKey: string;
+  progress: number;
+  onSelect: (file?: File) => void;
+}) {
+  const uploading = activeKey === uploadKey;
+  return (
+    <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-3 text-sm transition ${uploading ? "border-cyan-400/50 bg-cyan-400/10 text-cyan-300" : "border-[#3a3a3a] text-[#aaa] hover:border-[#666] hover:bg-[#171717] hover:text-white"}`}>
+      <UploadCloud size={17} />
+      <span>{uploading ? `Uploading ${progress}%` : "Upload / replace video"}</span>
+      <input
+        type="file"
+        accept="video/mp4,video/webm,video/quicktime,video/x-m4v"
+        disabled={Boolean(activeKey)}
+        className="hidden"
+        onChange={(event) => {
+          onSelect(event.target.files?.[0]);
+          event.currentTarget.value = "";
+        }}
       />
     </label>
   );
@@ -193,6 +230,14 @@ export default function Admin() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [uploadingVideo, setUploadingVideo] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    title: string;
+    description: string;
+    confirm: () => void;
+  } | null>(null);
+  const [deletePhrase, setDeletePhrase] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<{
     startX: number;
@@ -409,6 +454,65 @@ export default function Admin() {
     }
   }
 
+  async function uploadVideo(
+    file: File | undefined,
+    key: string,
+    onUploaded: (video: string, publicId: string) => void,
+  ) {
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      setError("Please choose a video file.");
+      return;
+    }
+    setUploadingVideo(key);
+    setUploadProgress(0);
+    setError("");
+    setMessage("");
+    try {
+      const signatureResponse = await fetch("/api/admin/cloudinary-signature", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const signed = await signatureResponse.json().catch(() => ({}));
+      if (!signatureResponse.ok)
+        throw new Error(signed.error || "Unable to start video upload");
+
+      const form = new FormData();
+      form.append("file", file);
+      form.append("api_key", signed.apiKey);
+      form.append("timestamp", String(signed.timestamp));
+      form.append("folder", signed.folder);
+      form.append("signature", signed.signature);
+
+      const uploaded = await new Promise<{ secure_url: string; public_id: string }>((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open("POST", `https://api.cloudinary.com/v1_1/${signed.cloudName}/video/upload`);
+        request.upload.onprogress = (event) => {
+          if (event.lengthComputable)
+            setUploadProgress(Math.round((event.loaded / event.total) * 100));
+        };
+        request.onerror = () => reject(new Error("Upload failed. Check your connection and try again."));
+        request.onload = () => {
+          const result = JSON.parse(request.responseText || "{}");
+          if (request.status < 200 || request.status >= 300)
+            reject(new Error(result.error?.message || "Cloudinary upload failed"));
+          else resolve(result);
+        };
+        request.send(form);
+      });
+      onUploaded(
+        optimizedCloudinaryVideoUrl(uploaded.secure_url),
+        uploaded.public_id,
+      );
+      setMessage("Video uploaded. Publish changes to make it live and remove the old video.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to upload video");
+    } finally {
+      setUploadingVideo("");
+      setUploadProgress(0);
+    }
+  }
+
   if (checking)
     return (
       <main className="grid min-h-screen place-items-center bg-black text-sm text-[#777]">
@@ -577,6 +681,18 @@ export default function Admin() {
   }
 
   const dirty = JSON.stringify(data) !== saved;
+  const requestDelete = (
+    title: string,
+    description: string,
+    confirm: () => void,
+  ) => {
+    setDeletePhrase("");
+    setDeleteConfirmation({ title, description, confirm });
+  };
+  const closeDeleteConfirmation = () => {
+    setDeleteConfirmation(null);
+    setDeletePhrase("");
+  };
   const updateHero = (key: keyof SiteContent["hero"], value: string | number) =>
     setData({ ...data, hero: { ...data.hero, [key]: value } });
   const updateVideo = (index: number, patch: Partial<VideoItem>) =>
@@ -709,6 +825,76 @@ export default function Admin() {
 
   return (
     <main className="min-h-screen bg-black text-white">
+      {deleteConfirmation && (
+        <div
+          className="fixed inset-0 z-[100] grid place-items-center bg-black/80 px-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-confirmation-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeDeleteConfirmation();
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-red-500/25 bg-[#111] p-6 shadow-2xl md:p-7">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400">
+                <Trash2 size={20} />
+              </div>
+              <button
+                type="button"
+                aria-label="Close deletion confirmation"
+                onClick={closeDeleteConfirmation}
+                className="rounded-lg p-2 text-[#777] hover:bg-white/5 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <h2 id="delete-confirmation-title" className="text-xl font-semibold">
+              {deleteConfirmation.title}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[#999]">
+              {deleteConfirmation.description}
+            </p>
+            <label className="mt-6 block">
+              <span className="mb-2 block text-sm text-[#bbb]">
+                Type <strong className="select-all text-white">hassaneditz</strong> to confirm
+              </span>
+              <input
+                autoFocus
+                value={deletePhrase}
+                onChange={(event) => setDeletePhrase(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") closeDeleteConfirmation();
+                }}
+                placeholder="hassaneditz"
+                autoComplete="off"
+                className={inputClass}
+              />
+            </label>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeDeleteConfirmation}
+                className="rounded-xl border border-[#333] px-4 py-2.5 text-sm text-[#bbb] hover:bg-white/5 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deletePhrase !== "hassaneditz"}
+                onClick={() => {
+                  if (deletePhrase !== "hassaneditz") return;
+                  deleteConfirmation.confirm();
+                  closeDeleteConfirmation();
+                }}
+                className="rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                Delete permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {sidebar}
       {mobileNav && (
         <button
@@ -739,16 +925,18 @@ export default function Admin() {
         className={`transition-[padding] duration-300 ${desktopNav ? "md:pl-[270px]" : "md:pl-0"}`}
       >
         <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-[#202020] bg-black/90 px-4 backdrop-blur md:px-9">
-          <div className="ml-14 text-sm text-[#777] md:ml-0">
+          <div
+            className={`ml-16 text-sm text-[#777] transition-[margin] duration-300 ${desktopNav ? "md:ml-0" : "md:ml-16"}`}
+          >
             Content management
           </div>
           <button
             onClick={publish}
-            disabled={busy || !dirty}
+            disabled={busy || Boolean(uploadingVideo) || !dirty}
             className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[#ddd] disabled:cursor-not-allowed disabled:opacity-35"
           >
             <Save size={16} />
-            {busy ? "Publishing..." : "Publish changes"}
+            {uploadingVideo ? "Video uploading..." : busy ? "Publishing..." : "Publish changes"}
           </button>
         </header>
         <div className="mx-auto max-w-[1180px] px-4 py-9 md:px-9 md:py-12">
@@ -1089,21 +1277,19 @@ export default function Admin() {
                       <button
                         aria-label={`Delete ${video.title}`}
                         onClick={() => {
-                          if (
-                            !window.confirm(
-                              `Delete "${video.title}" from the homepage showcase?`,
-                            )
-                          )
-                            return;
-                          setData({
-                            ...data,
-                            showcase: {
-                              ...data.showcase,
-                              videos: data.showcase.videos.filter(
-                                (_, position) => position !== index,
-                              ),
-                            },
-                          });
+                          requestDelete(
+                            `Delete “${video.title}”?`,
+                            "This video will be removed from the homepage after you publish the changes.",
+                            () => setData({
+                              ...data,
+                              showcase: {
+                                ...data.showcase,
+                                videos: data.showcase.videos.filter(
+                                  (_, position) => position !== index,
+                                ),
+                              },
+                            }),
+                          );
                         }}
                         className="absolute right-3 top-3 rounded-full border border-red-400/20 bg-black/70 p-2 text-red-400 opacity-0 transition group-hover:opacity-100"
                       >
@@ -1111,13 +1297,13 @@ export default function Admin() {
                       </button>
                     </div>
                     <div className="p-3">
-                      <Field
-                        label="Video URL"
-                        type="url"
-                        value={video.video}
-                        onChange={(value) =>
-                          updateVideo(index, { video: value })
-                        }
+                      <VideoUpload
+                        uploadKey={`showcase-${index}`}
+                        activeKey={uploadingVideo}
+                        progress={uploadProgress}
+                        onSelect={(file) => void uploadVideo(file, `showcase-${index}`, (videoUrl, publicId) =>
+                          updateVideo(index, { video: videoUrl, publicId })
+                        )}
                       />
                     </div>
                   </div>
@@ -1181,18 +1367,16 @@ export default function Admin() {
                       </div>
                       <button
                         onClick={() => {
-                          if (
-                            !window.confirm(
-                              `Delete the "${category.label}" niche and all ${category.videos.length} videos? This cannot be undone after publishing.`,
-                            )
-                          )
-                            return;
-                          setData({
-                            ...data,
-                            workCategories: data.workCategories.filter(
-                              (_, index) => index !== categoryIndex,
-                            ),
-                          });
+                          requestDelete(
+                            `Delete “${category.label}” niche?`,
+                            `This will remove the niche and all ${category.videos.length} videos inside it after you publish the changes.`,
+                            () => setData({
+                              ...data,
+                              workCategories: data.workCategories.filter(
+                                (_, index) => index !== categoryIndex,
+                              ),
+                            }),
+                          );
                         }}
                         className="flex items-center justify-center gap-2 rounded-xl border border-[#3a2020] px-4 py-3 text-sm text-red-400 hover:bg-red-950/30"
                       >
@@ -1260,17 +1444,15 @@ export default function Admin() {
                             <button
                               aria-label={`Delete ${video.title}`}
                               onClick={() => {
-                                if (
-                                  !window.confirm(
-                                    `Delete "${video.title}" from ${category.label}?`,
-                                  )
-                                )
-                                  return;
-                                updateWorkCategory(categoryIndex, {
-                                  videos: category.videos.filter(
-                                    (_, index) => index !== videoIndex,
-                                  ),
-                                });
+                                requestDelete(
+                                  `Delete “${video.title}”?`,
+                                  `This video will be removed from ${category.label} after you publish the changes.`,
+                                  () => updateWorkCategory(categoryIndex, {
+                                    videos: category.videos.filter(
+                                      (_, index) => index !== videoIndex,
+                                    ),
+                                  }),
+                                );
                               }}
                               className="absolute right-2 top-2 rounded-full border border-red-400/20 bg-black/70 p-2 text-red-400 opacity-0 transition group-hover:opacity-100"
                             >
@@ -1278,15 +1460,13 @@ export default function Admin() {
                             </button>
                           </div>
                           <div className="space-y-3 p-3">
-                            <Field
-                              label="Video URL"
-                              type="url"
-                              value={video.video}
-                              onChange={(value) =>
-                                updateWorkVideo(categoryIndex, videoIndex, {
-                                  video: value,
-                                })
-                              }
+                            <VideoUpload
+                              uploadKey={`work-${categoryIndex}-${videoIndex}`}
+                              activeKey={uploadingVideo}
+                              progress={uploadProgress}
+                              onSelect={(file) => void uploadVideo(file, `work-${categoryIndex}-${videoIndex}`, (videoUrl, publicId) =>
+                                updateWorkVideo(categoryIndex, videoIndex, { video: videoUrl, publicId })
+                              )}
                             />
                             <Field
                               label="Thumbnail second"
@@ -1392,21 +1572,19 @@ export default function Admin() {
                       <button
                         aria-label={`Delete ${plan.name}`}
                         onClick={() => {
-                          if (
-                            !window.confirm(
-                              `Delete the ${plan.name} pricing package?`,
-                            )
-                          )
-                            return;
-                          setData({
-                            ...data,
-                            pricing: {
-                              ...data.pricing,
-                              plans: data.pricing.plans.filter(
-                                (_, position) => position !== index,
-                              ),
-                            },
-                          });
+                          requestDelete(
+                            `Delete “${plan.name}” package?`,
+                            "This pricing package will be removed after you publish the changes.",
+                            () => setData({
+                              ...data,
+                              pricing: {
+                                ...data.pricing,
+                                plans: data.pricing.plans.filter(
+                                  (_, position) => position !== index,
+                                ),
+                              },
+                            }),
+                          );
                         }}
                         className="rounded-full border border-red-400/20 bg-black/70 p-2 text-red-400"
                       >

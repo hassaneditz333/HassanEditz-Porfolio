@@ -25,10 +25,18 @@ Add these in **Vercel > Project Settings > Environment Variables**:
 - `UPSTASH_REDIS_REST_TOKEN`
 - `SESSION_SECRET`
 - `ADMIN_PASSWORD` (required initial password, minimum 12 characters)
+- `CLOUDINARY_CLOUD_NAME` (Cloudinary product environment cloud name)
+- `CLOUDINARY_API_KEY` (Cloudinary API key; server-side environment variable)
+- `CLOUDINARY_API_SECRET` (Cloudinary API secret; never expose it with a `VITE_` prefix)
 - `RESEND_API_KEY` (Free API key from resend.com - 3,000 free emails/month, zero templates needed)
 - `EMAILJS_SERVICE_ID` (used by client contact form)
 - `EMAILJS_ADMIN_TEMPLATE_ID` (used by client contact form)
 - `EMAILJS_PUBLIC_KEY` (used by client contact form)
+
+The admin uploads videos directly to Cloudinary in the `hassaneditz/videos`
+folder. After **Publish changes**, a replaced or removed video uploaded through
+the admin is deleted from Cloudinary automatically. Existing manually pasted
+URLs are never deleted by this cleanup.
 
 Generate the session secret:
 

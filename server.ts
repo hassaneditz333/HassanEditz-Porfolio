@@ -8,6 +8,7 @@ import logout from "./api/admin/logout.js";
 import requestCode from "./api/admin/request-code.js";
 import verifyResetCode from "./api/admin/verify-reset-code.js";
 import resetPassword from "./api/admin/reset-password.js";
+import cloudinarySignature from "./api/admin/cloudinary-signature.js";
 
 process.env.NODE_ENV = "development";
 process.env.SESSION_SECRET ||= "local-development-only-session-secret-change-in-production";
@@ -22,6 +23,7 @@ app.all("/api/admin/logout", adapt(logout));
 app.all("/api/admin/request-code", adapt(requestCode));
 app.all("/api/admin/verify-reset-code", adapt(verifyResetCode));
 app.all("/api/admin/reset-password", adapt(resetPassword));
+app.all("/api/admin/cloudinary-signature", adapt(cloudinarySignature));
 
 const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
 app.use(vite.middlewares);

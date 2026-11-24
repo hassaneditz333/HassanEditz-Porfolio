@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
 import { SiteContentProvider } from "./SiteContentContext";
+import SeoManager from "./components/SeoManager";
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -144,6 +145,7 @@ export default function App() {
       <ScrollToTop />
       <ErrorBoundary>
         <SiteContentProvider>
+          <SeoManager />
           <AnimatedRoutes />
         </SiteContentProvider>
       </ErrorBoundary>

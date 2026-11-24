@@ -340,14 +340,39 @@ export default function Work() {
           </span>
         </h1>
 
-        <div className="max-w-[220px] mx-auto mb-10">
-          <CustomSelect
-            options={filterTabs.map((t) => ({ value: t.key, label: t.label }))}
-            value={activeTab}
-            onChange={(val: string) => setActiveTab(val)}
-            name="work-category"
-            placeholder="Select category"
-          />
+        <div className="mb-12">
+          <nav
+            aria-label="Filter portfolio by category"
+            className="mx-auto hidden max-w-5xl flex-wrap items-center justify-center gap-2 sm:flex"
+          >
+            {filterTabs.map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`rounded-full border px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] transition-all duration-200 ${
+                    active
+                      ? "border-cyan-400 bg-cyan-400 text-black shadow-[0_0_20px_rgba(6,182,212,.18)]"
+                      : "border-white/10 bg-white/[.025] text-gray-400 hover:border-cyan-400/40 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="mx-auto w-[180px] sm:hidden">
+            <CustomSelect
+              options={filterTabs.map((t) => ({ value: t.key, label: t.label }))}
+              value={activeTab}
+              onChange={(val: string) => setActiveTab(val)}
+              name="work-category"
+              placeholder="Category"
+            />
+          </div>
         </div>
 
         <div className="space-y-16">

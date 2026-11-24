@@ -1,4 +1,10 @@
-export type VideoItem = { id: number; title: string; video: string };
+export type VideoItem = {
+  id: number;
+  title: string;
+  video: string;
+  /** Cloudinary asset id. Present only for videos uploaded through the admin. */
+  publicId?: string;
+};
 export type WorkVideo = VideoItem & { frameTime?: number; thumbnail?: string };
 export type WorkCategory = { label: string; key: string; videos: WorkVideo[] };
 export type PricingPlan = {
