@@ -1368,6 +1368,7 @@ export default function Admin() {
                         uploadKey={`showcase-${index}`}
                         activeKey={uploadingVideo}
                         progress={uploadProgress}
+                        onCancel={cancelVideoUpload}
                         onSelect={(file) => void uploadVideo(file, `showcase-${index}`, (videoUrl, publicId) =>
                           updateVideo(index, { video: videoUrl, publicId })
                         )}
@@ -1531,6 +1532,7 @@ export default function Admin() {
                               uploadKey={`work-${categoryIndex}-${videoIndex}`}
                               activeKey={uploadingVideo}
                               progress={uploadProgress}
+                              onCancel={cancelVideoUpload}
                               onSelect={(file) => void uploadVideo(file, `work-${categoryIndex}-${videoIndex}`, (videoUrl, publicId) =>
                                 updateWorkVideo(categoryIndex, videoIndex, { video: videoUrl, publicId })
                               )}
